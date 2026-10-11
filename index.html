@@ -21,15 +21,21 @@ header small{color:var(--dim);flex:1;font-size:12px}
 .btn:disabled{opacity:.35}
 #strip{display:flex;gap:6px;padding:6px 14px;overflow-x:auto}#strip:empty{display:none}
 #strip img{height:40px;border-radius:8px;border:2px solid var(--line);cursor:pointer;background:#fff1}#strip img.on{border-color:var(--a)}
-#stage{flex:1;min-height:0;position:relative;overflow:auto;background:var(--pv,repeating-conic-gradient(#2a2838 0 25%,#211f2e 0 50%) 0 0/20px 20px)}
-#cv{display:block;margin:auto;width:100%;max-width:none;touch-action:none}
+#stage{flex:1;min-height:0;position:relative;overflow:auto;display:flex;background:var(--pv,repeating-conic-gradient(#2a2838 0 25%,#211f2e 0 50%) 0 0/20px 20px)}
+[hidden]{display:none!important}
+#cv{display:block;flex:none;margin:auto;touch-action:none}
 #drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;cursor:pointer}
 #drop .ring{width:130px;height:130px;border-radius:50%;border:2px dashed var(--a);display:grid;place-items:center;font-size:44px;animation:spin 14s linear infinite}
 #drop .ring i{animation:spin 14s linear infinite reverse;font-style:normal}
 @keyframes spin{to{transform:rotate(360deg)}}
 #drop b{font-size:18px}#drop span{color:var(--dim);max-width:280px}
 #drop.over .ring{background:#ffb45422}
-#panel{border-top:1px solid var(--line);background:var(--card);padding:10px 14px 14px;max-height:46%;overflow:auto;display:none}
+#dock{display:none;border-top:1px solid var(--line);background:var(--card);padding:8px 12px 10px}
+#drawer{max-height:36vh;overflow:auto;padding:2px 2px 8px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.bar{display:flex;gap:8px;margin-top:6px}.bar .big{flex:1;padding:13px;font-size:15px}.bar .big.go{animation:pulse 1.8s infinite}
+.bar.sub .btn{flex:1;padding:8px 4px;font-size:12px}.btn.on{border-color:var(--a);color:var(--a)}
+@keyframes pulse{50%{box-shadow:0 0 0 7px #ffb45433}}
+#drawer h4{margin:8px 0 2px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
 .row{display:flex;align-items:center;gap:8px;margin:7px 0;flex-wrap:wrap}
 .tools{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .tools button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border:1px solid var(--line);background:var(--bg);color:var(--dim);border-radius:10px;font:600 11px inherit;cursor:pointer}
@@ -52,18 +58,29 @@ select{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-
   <canvas id="cv" hidden></canvas>
   <div id="drop"><div class="ring"><i>✦</i></div><b>Lenyapkan latar belakang</b><span>Jatuhkan gambar, tempel (Ctrl+V), atau ketuk di sini. Diproses di perangkatmu, tidak ada yang diunggah.</span></div>
 </div>
-<div id="panel">
-  <div class="tools" id="tools">
-    <button data-t="pip"><b>💧</b>Pipet</button><button data-t="wand"><b>🪄</b>Tongkat</button><button data-t="del"><b>🧽</b>Hapus</button><button data-t="res"><b>🖌️</b>Pulihkan</button><button data-t="pan" class="on"><b>✋</b>Geser</button>
+<div id="dock">
+  <div id="drawer" hidden>
+    <div id="pA" hidden>
+      <h4>Kebersihan tepi</h4>
+      <label class="s">Toleransi<input type="range" id="tol" min="2" max="110" value="30"><output></output></label>
+      <label class="s">Haluskan<input type="range" id="soft" min="0" max="6" value="1"><output></output></label>
+      <label class="s">Kikis tepi<input type="range" id="shr" min="-30" max="40" value="6"><output></output></label>
+      <div class="row"><label class="chk"><input type="checkbox" id="glob">Hapus semua warna serupa</label><label class="chk"><input type="checkbox" id="defr" checked>Bersihkan halo</label></div>
+      <h4>Tampilan dan ekspor</h4>
+      <label class="s">Perbesar<input type="range" id="zoom" min="100" max="500" value="100" step="10"><output></output></label>
+      <div class="row">Latar pratinjau <div class="chips" id="chips"></div></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="trim" checked>Potong rapat</label><select id="size"><option value="0">Ukuran asli</option><option value="1024">1024 px</option><option value="512">512 px</option><option value="256">256 px</option></select></div>
+    </div>
+    <div id="pB" hidden>
+      <h4>Pilih alat, lalu sentuh gambar</h4>
+      <div class="tools" id="tools">
+        <button data-t="pip"><b>💧</b>Pipet latar</button><button data-t="wand"><b>🪄</b>Hapus area</button><button data-t="del"><b>🧽</b>Kuas hapus</button><button data-t="res"><b>🖌️</b>Kuas pulih</button><button data-t="pan" class="on"><b>✋</b>Geser</button>
+      </div>
+      <label class="s" id="brw" style="display:none">Ukuran kuas<input type="range" id="br" min="3" max="90" value="22"><output></output></label>
+    </div>
   </div>
-  <div class="row"><label class="s">Toleransi<input type="range" id="tol" min="2" max="110" value="30"><output></output></label>
-  <label class="s">Haluskan<input type="range" id="soft" min="0" max="6" value="1"><output></output></label>
-  <label class="s">Kikis tepi<input type="range" id="shr" min="-30" max="40" value="6"><output></output></label>
-  <label class="s" id="brw" style="display:none">Ukuran kuas<input type="range" id="br" min="3" max="90" value="22"><output></output></label>
-  <label class="s">Zoom<input type="range" id="zoom" min="100" max="500" value="100" step="10"><output></output></label></div>
-  <div class="row"><label class="chk"><input type="checkbox" id="glob">Semua warna serupa</label><label class="chk"><input type="checkbox" id="defr" checked>Bersihkan halo</label><label class="chk"><input type="checkbox" id="trim" checked>Potong rapat</label></div>
-  <div class="row">Latar pratinjau <div class="chips" id="chips"></div></div>
-  <div class="row"><button class="btn" id="un">↶</button><button class="btn" id="re">↷</button><button class="btn" id="cmp">Tahan: asli</button><select id="size"><option value="0">Ukuran asli</option><option value="1024">1024 px</option><option value="512">512 px</option><option value="256">256 px</option></select><button class="btn pri" id="dl" style="margin-left:auto">Unduh PNG</button></div>
+  <div class="bar"><button class="btn pri big go" id="auto">✦ Hapus Latar Otomatis</button><button class="btn" id="dl" disabled>⬇ Unduh</button></div>
+  <div class="bar sub"><button class="btn" id="bA">⚙ Atur</button><button class="btn" id="bB">🖌 Rapikan</button><button class="btn" id="un">↶ Undo</button><button class="btn" id="re">↷ Ulang</button><button class="btn" id="cmp">👁 Asli</button></div>
 </div>
 <div id="modal"><img id="mimg" alt=""><b>Tekan lama gambar untuk menyimpan</b><button class="btn" onclick="modal.style.display='none'">Tutup</button></div>
 <div id="toast"></div>
@@ -82,6 +99,7 @@ function load(f){
     const d=g.getImageData(0,0,W,H),t=document.createElement("canvas");t.width=48;t.height=48*H/W|0||1;t.getContext("2d").drawImage(c,0,0,t.width,t.height);
     const o={W,H,d,src:d.data,ov:new Uint8Array(W*H),hist:[],fut:[],name:(f.name||"gambar").replace(/\.\w+$/,""),th:t.toDataURL(),bg:[255,255,255],cmp:false};
     autoBg(o);imgs.push(o);pick(o);
+    if(imgs.length===1)toast("Tekan ✦ Hapus Latar Otomatis");
   };
   im.src=URL.createObjectURL(f);
 }
@@ -92,7 +110,7 @@ function autoBg(o){ // warna paling umum di tepi gambar
   const b=Object.values(cnt).sort((a,b)=>b[0]-a[0])[0];o.bg=[b[1]/b[0],b[2]/b[0],b[3]/b[0]].map(Math.round);
 }
 function pick(o){
-  S=o;cv.width=o.W;cv.height=o.H;cv.hidden=false;$("#drop").style.display="none";$("#panel").style.display="block";
+  S=o;cv.width=o.W;cv.height=o.H;cv.hidden=false;$("#drop").style.display="none";$("#dock").style.display="block";fit();syncAuto();
   $("#strip").innerHTML=imgs.map((m,i)=>`<img src="${m.th}" data-i="${i}" class="${m===o?"on":""}">`).join("");run();
 }
 // ---------- inti: mask, tepi, halo ----------
@@ -112,7 +130,7 @@ function blur(a,W,H,r){
 }
 const sm=(a,b,x)=>{x=(x-a)/(b-a);x=x<0?0:x>1?1:x;return x*x*(3-2*x)};
 function compute(){
-  if(!S)return;
+  if(!S)return;if(!S.done){draw();return}
   const {W,H,src,bg,ov}=S,n=W*H,p=P(),T=p.tol;let rm;
   if(p.glob){rm=new Uint8Array(n);const T2=T*T;for(let i=0;i<n;i++){const j=i*4,a=src[j]-bg[0],b=src[j+1]-bg[1],c=src[j+2]-bg[2];rm[i]=a*a+b*b+c*c<=T2?1:0}}
   else{const st=[];for(let x=0;x<W;x++)st.push(x,(H-1)*W+x);for(let y=0;y<H;y++)st.push(y*W,y*W+W-1);rm=region(st,bg,T)}
@@ -129,7 +147,13 @@ function compute(){
   }
   draw();
 }
-function draw(){if(S)cx.putImageData(S.cmp?S.d:S.out,0,0)}
+function draw(){if(S)cx.putImageData(S.cmp||!S.done||!S.out?S.d:S.out,0,0)}
+function fit(){if(!S)return;const st=$("#stage"),k=Math.min(st.clientWidth/S.W,st.clientHeight/S.H)*(+$("#zoom").value/100);cv.style.width=S.W*k+"px";cv.style.height=S.H*k+"px"}
+new ResizeObserver(fit).observe($("#stage"));
+function syncAuto(){const b=$("#auto");b.textContent=S.done?"↻ Ulangi otomatis":"✦ Hapus Latar Otomatis";b.classList.toggle("go",!S.done);$("#dl").disabled=!S.done}
+$("#auto").onclick=()=>{if(!S)return;S.done=true;autoBg(S);S.ov.fill(0);S.hist=[];S.fut=[];compute();syncAuto();toast("Latar dihapus ✦ — rapikan kalau perlu")};
+function openP(k){const A=$("#pA"),B=$("#pB"),t=k==="A"?A:B,was=t.hidden;A.hidden=B.hidden=true;t.hidden=!was;$("#drawer").hidden=t.hidden;$("#bA").classList.toggle("on",!A.hidden);$("#bB").classList.toggle("on",!B.hidden);fit()}
+$("#bA").onclick=()=>openP("A");$("#bB").onclick=()=>openP("B");
 function run(){cancelAnimationFrame(raf);raf=requestAnimationFrame(compute);outs()}
 function outs(){document.querySelectorAll("label.s").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");o.textContent=i.id==="zoom"?i.value+"%":i.id==="shr"?(i.value/100).toFixed(2):i.value})}
 // ---------- sentuh & kuas ----------
@@ -140,7 +164,7 @@ function paint(x,y,v){
   for(let j=Math.max(0,y-r);j<=Math.min(H-1,y+r);j++)for(let i=Math.max(0,x-r);i<=Math.min(W-1,x+r);i++)if((i-x)**2+(j-y)**2<=r*r)ov[j*W+i]=v;
 }
 cv.addEventListener("pointerdown",e=>{
-  if(!S||tool==="pan")return;const[x,y]=at(e);if(x<0||y<0||x>=S.W||y>=S.H)return;
+  if(!S||tool==="pan")return;if(!S.done){toast("Tekan Hapus Latar Otomatis dulu");return}const[x,y]=at(e);if(x<0||y<0||x>=S.W||y>=S.H)return;
   if(tool==="pip"){const j=(y*S.W+x)*4;S.bg=[S.src[j],S.src[j+1],S.src[j+2]];S.ov.fill(0);run();toast("Warna latar dipilih");return}
   snap();
   if(tool==="wand"){const j=(y*S.W+x)*4,m=region([y*S.W+x],[S.src[j],S.src[j+1],S.src[j+2]],P().tol);for(let i=0;i<m.length;i++)if(m[i])S.ov[i]=1;run();return}
@@ -153,7 +177,7 @@ $("#un").onclick=()=>{if(S&&S.hist.length){S.fut.push(S.ov.slice());S.ov.set(S.h
 $("#re").onclick=()=>{if(S&&S.fut.length){S.hist.push(S.ov.slice());S.ov.set(S.fut.pop());run()}};
 const hold=v=>()=>{if(S){S.cmp=v;draw()}};
 ["pointerdown"].forEach(t=>$("#cmp").addEventListener(t,hold(true)));["pointerup","pointerleave","pointercancel"].forEach(t=>$("#cmp").addEventListener(t,hold(false)));
-document.querySelectorAll("#panel input").forEach(i=>i.addEventListener("input",()=>{if(i.id==="zoom"){cv.style.width=i.value+"%";outs()}else run()}));
+document.querySelectorAll("#dock input").forEach(i=>i.addEventListener("input",()=>{if(i.id==="zoom"){fit();outs()}else run()}));
 const CH=["","#fff1d6","#2a2c36","#ffffff","#7ee0b0"];
 $("#chips").innerHTML=CH.map((c,i)=>`<i data-c="${c}" class="${i?"":"on"}" style="background:${c||"repeating-conic-gradient(#888 0 25%,#444 0 50%) 0 0/10px 10px"}"></i>`).join("");
 $("#chips").onclick=e=>{const i=e.target.closest("i");if(!i)return;document.querySelectorAll("#chips i").forEach(x=>x.classList.toggle("on",x===i));$("#stage").style.setProperty("--pv",i.dataset.c||"repeating-conic-gradient(#2a2838 0 25%,#211f2e 0 50%) 0 0/20px 20px");$("#stage").style.background=i.dataset.c||""};
@@ -166,7 +190,7 @@ $("#add").onclick=$("#drop").onclick=()=>fi.click();
 document.addEventListener("paste",e=>{[...e.clipboardData.files].forEach(load)});
 // ---------- ekspor ----------
 $("#dl").onclick=async()=>{
-  if(!S||!S.out)return;
+  if(!S||!S.out||!S.done)return;
   const {W,H,out}=S,o=out.data;let x0=0,y0=0,x1=W-1,y1=H-1;
   if($("#trim").checked){x0=W;y0=H;x1=y1=-1;for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(o[(y*W+x)*4+3]>8){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}if(x1<0){toast("Tidak ada piksel tersisa");return}}
   const w=x1-x0+1,h=y1-y0+1,full=document.createElement("canvas");full.width=W;full.height=H;full.getContext("2d").putImageData(out,0,0);
