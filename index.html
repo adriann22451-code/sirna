@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SIRNA — penghapus latar</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@1,700&family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#0f0e17;--card:#1a1826;--line:#2c2940;--tx:#f4efe6;--dim:#9a94b0;--a:#ffb454;--v:#8b7bff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.4 "Bricolage Grotesque",system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.logo{font:italic 700 24px Fraunces,Georgia,serif;letter-spacing:.06em}
+.logo span{display:inline-block;animation:sirna 4.8s infinite;color:var(--a)}
+.logo span:nth-child(2){animation-delay:.25s}.logo span:nth-child(3){animation-delay:.5s}.logo span:nth-child(4){animation-delay:.75s}.logo span:nth-child(5){animation-delay:1s}
+@keyframes sirna{0%,55%{opacity:1;filter:blur(0);transform:none}75%{opacity:.08;filter:blur(5px);transform:translateY(-6px)}95%,100%{opacity:1;filter:blur(0);transform:none}}
+header small{color:var(--dim);flex:1;font-size:12px}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:10px;padding:8px 12px;font:600 13px inherit;cursor:pointer}
+.btn.pri{background:var(--a);color:#2a1a00;border-color:var(--a);font-weight:800}
+.btn:disabled{opacity:.35}
+#strip{display:flex;gap:6px;padding:6px 14px;overflow-x:auto}#strip:empty{display:none}
+#strip img{height:40px;border-radius:8px;border:2px solid var(--line);cursor:pointer;background:#fff1}#strip img.on{border-color:var(--a)}
+#stage{flex:1;min-height:0;position:relative;overflow:auto;background:var(--pv,repeating-conic-gradient(#2a2838 0 25%,#211f2e 0 50%) 0 0/20px 20px)}
+#cv{display:block;margin:auto;width:100%;max-width:none;touch-action:none}
+#drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;cursor:pointer}
+#drop .ring{width:130px;height:130px;border-radius:50%;border:2px dashed var(--a);display:grid;place-items:center;font-size:44px;animation:spin 14s linear infinite}
+#drop .ring i{animation:spin 14s linear infinite reverse;font-style:normal}
+@keyframes spin{to{transform:rotate(360deg)}}
+#drop b{font-size:18px}#drop span{color:var(--dim);max-width:280px}
+#drop.over .ring{background:#ffb45422}
+#panel{border-top:1px solid var(--line);background:var(--card);padding:10px 14px 14px;max-height:46%;overflow:auto;display:none}
+.row{display:flex;align-items:center;gap:8px;margin:7px 0;flex-wrap:wrap}
+.tools{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tools button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border:1px solid var(--line);background:var(--bg);color:var(--dim);border-radius:10px;font:600 11px inherit;cursor:pointer}
+.tools button b{font-size:18px;font-weight:400}.tools button.on{border-color:var(--a);color:var(--a);background:#ffb4540f}
+label.s{display:grid;grid-template-columns:92px 1fr 34px;align-items:center;gap:8px;width:100%;color:var(--dim);font-size:12px}
+label.s output{text-align:right;color:var(--tx)}
+input[type=range]{accent-color:var(--a);width:100%}
+.chk{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:12px}.chk input{accent-color:var(--a)}
+.chips{display:flex;gap:6px}.chips i{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);cursor:pointer}.chips i.on{border-color:var(--a)}
+select{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px;font:inherit}
+#modal{position:fixed;inset:0;background:#000d;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;z-index:9}
+#modal img{max-width:100%;max-height:70%;background:repeating-conic-gradient(#444 0 25%,#333 0 50%) 0 0/16px 16px}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:20px;font-weight:600;opacity:0;transition:.3s;pointer-events:none;z-index:10}
+</style>
+</head>
+<body>
+<header><div class="logo"><span>S</span><span>I</span><span>R</span><span>N</span><span>A</span></div><small>latar lenyap, sosok tinggal</small><button class="btn" id="add">+ Foto</button></header>
+<div id="strip"></div>
+<div id="stage">
+  <canvas id="cv" hidden></canvas>
+  <div id="drop"><div class="ring"><i>✦</i></div><b>Lenyapkan latar belakang</b><span>Jatuhkan gambar, tempel (Ctrl+V), atau ketuk di sini. Diproses di perangkatmu, tidak ada yang diunggah.</span></div>
+</div>
+<div id="panel">
+  <div class="tools" id="tools">
+    <button data-t="pip"><b>💧</b>Pipet</button><button data-t="wand"><b>🪄</b>Tongkat</button><button data-t="del"><b>🧽</b>Hapus</button><button data-t="res"><b>🖌️</b>Pulihkan</button><button data-t="pan" class="on"><b>✋</b>Geser</button>
+  </div>
+  <div class="row"><label class="s">Toleransi<input type="range" id="tol" min="2" max="110" value="30"><output></output></label>
+  <label class="s">Haluskan<input type="range" id="soft" min="0" max="6" value="1"><output></output></label>
+  <label class="s">Kikis tepi<input type="range" id="shr" min="-30" max="40" value="6"><output></output></label>
+  <label class="s" id="brw" style="display:none">Ukuran kuas<input type="range" id="br" min="3" max="90" value="22"><output></output></label>
+  <label class="s">Zoom<input type="range" id="zoom" min="100" max="500" value="100" step="10"><output></output></label></div>
+  <div class="row"><label class="chk"><input type="checkbox" id="glob">Semua warna serupa</label><label class="chk"><input type="checkbox" id="defr" checked>Bersihkan halo</label><label class="chk"><input type="checkbox" id="trim" checked>Potong rapat</label></div>
+  <div class="row">Latar pratinjau <div class="chips" id="chips"></div></div>
+  <div class="row"><button class="btn" id="un">↶</button><button class="btn" id="re">↷</button><button class="btn" id="cmp">Tahan: asli</button><select id="size"><option value="0">Ukuran asli</option><option value="1024">1024 px</option><option value="512">512 px</option><option value="256">256 px</option></select><button class="btn pri" id="dl" style="margin-left:auto">Unduh PNG</button></div>
+</div>
+<div id="modal"><img id="mimg" alt=""><b>Tekan lama gambar untuk menyimpan</b><button class="btn" onclick="modal.style.display='none'">Tutup</button></div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),cv=$("#cv"),cx=cv.getContext("2d",{willReadFrequently:true}),modal=$("#modal");
+let S=null,tool="pan",imgs=[],raf=0,drag=false;
+const P=()=>({tol:+$("#tol").value,soft:+$("#soft").value,shr:+$("#shr").value/100,glob:$("#glob").checked,defr:$("#defr").checked});
+function toast(t){const e=$("#toast");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1800)}
+// ---------- muat gambar ----------
+function load(f){
+  if(!f||!f.type.startsWith("image/"))return;
+  const im=new Image();
+  im.onload=()=>{
+    const k=Math.min(1,1400/Math.max(im.width,im.height)),W=Math.round(im.width*k),H=Math.round(im.height*k),c=document.createElement("canvas");
+    c.width=W;c.height=H;const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,W,H);g.drawImage(im,0,0,W,H);
+    const d=g.getImageData(0,0,W,H),t=document.createElement("canvas");t.width=48;t.height=48*H/W|0||1;t.getContext("2d").drawImage(c,0,0,t.width,t.height);
+    const o={W,H,d,src:d.data,ov:new Uint8Array(W*H),hist:[],fut:[],name:(f.name||"gambar").replace(/\.\w+$/,""),th:t.toDataURL(),bg:[255,255,255],cmp:false};
+    autoBg(o);imgs.push(o);pick(o);
+  };
+  im.src=URL.createObjectURL(f);
+}
+function autoBg(o){ // warna paling umum di tepi gambar
+  const {W,H,src}=o,cnt={};
+  const add=(x,y)=>{const j=(y*W+x)*4,k=(src[j]>>4)+","+(src[j+1]>>4)+","+(src[j+2]>>4);(cnt[k]=cnt[k]||[0,0,0,0]);const a=cnt[k];a[0]++;a[1]+=src[j];a[2]+=src[j+1];a[3]+=src[j+2]};
+  for(let x=0;x<W;x+=2){add(x,0);add(x,H-1)}for(let y=0;y<H;y+=2){add(0,y);add(W-1,y)}
+  const b=Object.values(cnt).sort((a,b)=>b[0]-a[0])[0];o.bg=[b[1]/b[0],b[2]/b[0],b[3]/b[0]].map(Math.round);
+}
+function pick(o){
+  S=o;cv.width=o.W;cv.height=o.H;cv.hidden=false;$("#drop").style.display="none";$("#panel").style.display="block";
+  $("#strip").innerHTML=imgs.map((m,i)=>`<img src="${m.th}" data-i="${i}" class="${m===o?"on":""}">`).join("");run();
+}
+// ---------- inti: mask, tepi, halo ----------
+function region(starts,ref,T){
+  const {W,H,src}=S,n=W*H,m=new Uint8Array(n),st=new Int32Array(n),T2=T*T;let sp=0;
+  const ok=i=>{const j=i*4,a=src[j]-ref[0],b=src[j+1]-ref[1],c=src[j+2]-ref[2];return a*a+b*b+c*c<=T2};
+  const push=i=>{if(!m[i]&&ok(i)){m[i]=1;st[sp++]=i}};
+  starts.forEach(push);
+  while(sp){const i=st[--sp],x=i%W;if(x>0)push(i-1);if(x<W-1)push(i+1);if(i>=W)push(i-W);if(i<n-W)push(i+W)}
+  return m;
+}
+function blur(a,W,H,r){
+  const t=new Float32Array(a.length),o=new Float32Array(a.length),k=2*r+1,cl=(v,m)=>v<0?0:v>m?m:v;
+  for(let y=0;y<H;y++){const w=y*W;let s=0;for(let x=-r;x<=r;x++)s+=a[w+cl(x,W-1)];for(let x=0;x<W;x++){t[w+x]=s/k;s+=a[w+cl(x+r+1,W-1)]-a[w+cl(x-r,W-1)]}}
+  for(let x=0;x<W;x++){let s=0;for(let y=-r;y<=r;y++)s+=t[cl(y,H-1)*W+x];for(let y=0;y<H;y++){o[y*W+x]=s/k;s+=t[cl(y+r+1,H-1)*W+x]-t[cl(y-r,H-1)*W+x]}}
+  return o;
+}
+const sm=(a,b,x)=>{x=(x-a)/(b-a);x=x<0?0:x>1?1:x;return x*x*(3-2*x)};
+function compute(){
+  if(!S)return;
+  const {W,H,src,bg,ov}=S,n=W*H,p=P(),T=p.tol;let rm;
+  if(p.glob){rm=new Uint8Array(n);const T2=T*T;for(let i=0;i<n;i++){const j=i*4,a=src[j]-bg[0],b=src[j+1]-bg[1],c=src[j+2]-bg[2];rm[i]=a*a+b*b+c*c<=T2?1:0}}
+  else{const st=[];for(let x=0;x<W;x++)st.push(x,(H-1)*W+x);for(let y=0;y<H;y++)st.push(y*W,y*W+W-1);rm=region(st,bg,T)}
+  const k=new Float32Array(n);
+  for(let i=0;i<n;i++){const v=ov[i];k[i]=v===1?0:v===2?1:rm[i]?0:1}
+  const kb=p.soft||p.shr?blur(k,W,H,p.soft||1):k,f=Math.max(.04,.08+p.soft*.05),out=S.out=new ImageData(W,H),o=out.data;
+  for(let i=0;i<n;i++){
+    const j=i*4;let a=sm(.5-f,.5+f,kb[i]-p.shr),r=src[j],g=src[j+1],b=src[j+2];
+    if(a>0&&p.defr&&kb[i]<.97&&ov[i]!==2){ // pita tepi: buang sisa warna latar
+      const dr=r-bg[0],dg=g-bg[1],db=b-bg[2],ca=sm(T*.45,T*1.9+14,Math.sqrt(dr*dr+dg*dg+db*db));
+      if(ca<1){a*=ca;const q=Math.max(ca,.06);r=Math.max(0,Math.min(255,(r-(1-ca)*bg[0])/q));g=Math.max(0,Math.min(255,(g-(1-ca)*bg[1])/q));b=Math.max(0,Math.min(255,(b-(1-ca)*bg[2])/q))}
+    }
+    o[j]=r;o[j+1]=g;o[j+2]=b;o[j+3]=a*255;
+  }
+  draw();
+}
+function draw(){if(S)cx.putImageData(S.cmp?S.d:S.out,0,0)}
+function run(){cancelAnimationFrame(raf);raf=requestAnimationFrame(compute);outs()}
+function outs(){document.querySelectorAll("label.s").forEach(l=>{const i=l.querySelector("input"),o=l.querySelector("output");o.textContent=i.id==="zoom"?i.value+"%":i.id==="shr"?(i.value/100).toFixed(2):i.value})}
+// ---------- sentuh & kuas ----------
+const at=e=>{const r=cv.getBoundingClientRect();return[Math.floor((e.clientX-r.left)*S.W/r.width),Math.floor((e.clientY-r.top)*S.H/r.height)]};
+function snap(){S.hist.push(S.ov.slice());if(S.hist.length>15)S.hist.shift();S.fut=[]}
+function paint(x,y,v){
+  const {W,H,ov}=S,r=+$("#br").value*S.W/cv.getBoundingClientRect().width/2|0||2;
+  for(let j=Math.max(0,y-r);j<=Math.min(H-1,y+r);j++)for(let i=Math.max(0,x-r);i<=Math.min(W-1,x+r);i++)if((i-x)**2+(j-y)**2<=r*r)ov[j*W+i]=v;
+}
+cv.addEventListener("pointerdown",e=>{
+  if(!S||tool==="pan")return;const[x,y]=at(e);if(x<0||y<0||x>=S.W||y>=S.H)return;
+  if(tool==="pip"){const j=(y*S.W+x)*4;S.bg=[S.src[j],S.src[j+1],S.src[j+2]];S.ov.fill(0);run();toast("Warna latar dipilih");return}
+  snap();
+  if(tool==="wand"){const j=(y*S.W+x)*4,m=region([y*S.W+x],[S.src[j],S.src[j+1],S.src[j+2]],P().tol);for(let i=0;i<m.length;i++)if(m[i])S.ov[i]=1;run();return}
+  drag=true;cv.setPointerCapture(e.pointerId);paint(x,y,tool==="del"?1:2);run();
+});
+cv.addEventListener("pointermove",e=>{if(drag){const[x,y]=at(e);paint(x,y,tool==="del"?1:2);run()}});
+["pointerup","pointercancel"].forEach(t=>cv.addEventListener(t,()=>drag=false));
+$("#tools").onclick=e=>{const b=e.target.closest("button");if(!b)return;tool=b.dataset.t;document.querySelectorAll("#tools button").forEach(x=>x.classList.toggle("on",x===b));$("#brw").style.display=tool==="del"||tool==="res"?"grid":"none";cv.style.touchAction=tool==="pan"?"auto":"none"};
+$("#un").onclick=()=>{if(S&&S.hist.length){S.fut.push(S.ov.slice());S.ov.set(S.hist.pop());run()}};
+$("#re").onclick=()=>{if(S&&S.fut.length){S.hist.push(S.ov.slice());S.ov.set(S.fut.pop());run()}};
+const hold=v=>()=>{if(S){S.cmp=v;draw()}};
+["pointerdown"].forEach(t=>$("#cmp").addEventListener(t,hold(true)));["pointerup","pointerleave","pointercancel"].forEach(t=>$("#cmp").addEventListener(t,hold(false)));
+document.querySelectorAll("#panel input").forEach(i=>i.addEventListener("input",()=>{if(i.id==="zoom"){cv.style.width=i.value+"%";outs()}else run()}));
+const CH=["","#fff1d6","#2a2c36","#ffffff","#7ee0b0"];
+$("#chips").innerHTML=CH.map((c,i)=>`<i data-c="${c}" class="${i?"":"on"}" style="background:${c||"repeating-conic-gradient(#888 0 25%,#444 0 50%) 0 0/10px 10px"}"></i>`).join("");
+$("#chips").onclick=e=>{const i=e.target.closest("i");if(!i)return;document.querySelectorAll("#chips i").forEach(x=>x.classList.toggle("on",x===i));$("#stage").style.setProperty("--pv",i.dataset.c||"repeating-conic-gradient(#2a2838 0 25%,#211f2e 0 50%) 0 0/20px 20px");$("#stage").style.background=i.dataset.c||""};
+$("#strip").onclick=e=>{const i=e.target.closest("img");if(i)pick(imgs[+i.dataset.i])};
+// ---------- masukan file ----------
+const fi=document.createElement("input");fi.type="file";fi.accept="image/*";fi.multiple=true;fi.onchange=()=>{[...fi.files].forEach(load);fi.value=""};
+$("#add").onclick=$("#drop").onclick=()=>fi.click();
+["dragover","dragenter"].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();$("#drop").classList.add("over")}));
+["dragleave","drop"].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();$("#drop").classList.remove("over");if(t==="drop")[...e.dataTransfer.files].forEach(load)}));
+document.addEventListener("paste",e=>{[...e.clipboardData.files].forEach(load)});
+// ---------- ekspor ----------
+$("#dl").onclick=async()=>{
+  if(!S||!S.out)return;
+  const {W,H,out}=S,o=out.data;let x0=0,y0=0,x1=W-1,y1=H-1;
+  if($("#trim").checked){x0=W;y0=H;x1=y1=-1;for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(o[(y*W+x)*4+3]>8){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}if(x1<0){toast("Tidak ada piksel tersisa");return}}
+  const w=x1-x0+1,h=y1-y0+1,full=document.createElement("canvas");full.width=W;full.height=H;full.getContext("2d").putImageData(out,0,0);
+  const m=+$("#size").value,k=m?Math.min(1,m/Math.max(w,h)):1,c=document.createElement("canvas");c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));
+  const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(full,x0,y0,w,h,0,0,c.width,c.height);
+  const blob=await new Promise(r=>c.toBlob(r,"image/png")),name=S.name+"-sirna.png";
+  let d=null;try{d=window.claude&&await claude.use("downloads")}catch(_){}
+  if(d){try{await d.save({filename:name,data:blob});toast("Tersimpan ✦")}catch(e){if(e&&e.code!=="declined")toast("Gagal menyimpan")}}
+  else{$("#mimg").src=URL.createObjectURL(blob);modal.style.display="flex"}
+};
+outs();
+</script>
+</body>
+</html>
