@@ -88,7 +88,7 @@ select{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-
 const $=s=>document.querySelector(s),cv=$("#cv"),cx=cv.getContext("2d",{willReadFrequently:true}),modal=$("#modal");
 let S=null,tool="pan",imgs=[],raf=0,drag=false;
 const P=()=>({tol:+$("#tol").value,soft:+$("#soft").value,shr:+$("#shr").value/100,glob:$("#glob").checked,defr:$("#defr").checked});
-function toast(t){const e=$("#toast");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1800)}
+function toast(t,ms){const e=$("#toast");e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,ms||1800)}
 // ---------- muat gambar ----------
 function load(f){
   if(!f||!f.type.startsWith("image/"))return;
@@ -176,14 +176,40 @@ async function ai(){
 // AI di browser (model segmentasi @imgly/background-removal, jalan lokal lewat ONNX/WASM).
 // Dimuat saat dibutuhkan; di host yang memblokir CDN (mis. dalam Claude) gagal pelan-pelan lalu pindah ke cadangan.
 let BG=null;
+let ERR="";
 async function loadML(){
   if(BG)return BG;
   for(const u of["https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs","https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm"]){
-    try{const m=await import(u);if(m&&m.removeBackground)return BG=m}catch(e){}
+    try{const m=await import(u);if(m&&m.removeBackground)return BG=m}catch(e){ERR="imgly: "+(e&&e.message||e)}
   }
   return null;
 }
-async function ml(){
+// Jalur utama: model RMBG-1.4 lewat Transformers.js (jalan lokal di browser; model diunduh dari Hugging Face sekali).
+// Catatan lisensi: RMBG-1.4 (BRIA) hanya untuk pemakaian nonkomersial.
+let RM=null;
+async function loadRM(){
+  if(RM)return RM;
+  const b=$("#auto"),T=await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2");
+  T.env.allowLocalModels=false;
+  const id="briaai/RMBG-1.4",cb=p=>{if(p&&p.status==="progress")b.textContent="Menyiapkan model… "+Math.round(p.progress||0)+"%"};
+  const model=await T.AutoModel.from_pretrained(id,{config:{model_type:"custom"},dtype:"q8",progress_callback:cb});
+  const processor=await T.AutoProcessor.from_pretrained(id,{config:{do_normalize:true,do_pad:false,do_rescale:true,do_resize:true,image_mean:[.5,.5,.5],feature_extractor_type:"ImageFeatureExtractor",image_std:[1,1,1],resample:2,rescale_factor:1/255,size:{width:1024,height:1024}}});
+  return RM={model,processor,RawImage:T.RawImage};
+}
+async function mlRmbg(){
+  try{
+    const {model,processor,RawImage}=await loadRM();
+    $("#auto").textContent="Mengenali objek…";
+    const t=document.createElement("canvas");t.width=S.W;t.height=S.H;t.getContext("2d").putImageData(S.d,0,0);
+    const url=URL.createObjectURL(await new Promise(r=>t.toBlob(r,"image/png"))),img=await RawImage.fromURL(url);
+    const {pixel_values}=await processor(img),{output}=await model({input:pixel_values});
+    const mask=await RawImage.fromTensor(output[0].mul(255).to("uint8")).resize(img.width,img.height);
+    const a=new Float32Array(S.W*S.H);for(let i=0;i<a.length;i++)a[i]=mask.data[i]/255;
+    URL.revokeObjectURL(url);S.ai=a;return true;
+  }catch(e){ERR="rmbg: "+(e&&e.message||e);console.error(e);return false}
+}
+async function ml(){return (await mlRmbg())||(await mlImgly())}
+async function mlImgly(){
   const m=await loadML();if(!m)return false;
   const b=$("#auto");
   try{
@@ -194,11 +220,11 @@ async function ml(){
     const bm=await createImageBitmap(out),c=document.createElement("canvas");c.width=S.W;c.height=S.H;const g=c.getContext("2d");g.drawImage(bm,0,0,S.W,S.H);
     const d=g.getImageData(0,0,S.W,S.H).data,a=new Float32Array(S.W*S.H);for(let i=0;i<a.length;i++)a[i]=d[i*4+3]/255;
     S.ai=a;return true;
-  }catch(e){return false}
+  }catch(e){ERR="imgly: "+(e&&e.message||e);return false}
 }
 $("#auto").onclick=async()=>{
   if(!S)return;const b=$("#auto");S.ov.fill(0);S.hist=[];S.fut=[];S.ai=null;
-  if($("#useai").checked){b.disabled=true;b.textContent="Mengenali objek…";const ok=(await ml())||(await ai());b.disabled=false;if(!ok)toast("Model AI tidak bisa dimuat, pakai deteksi warna")}
+  if($("#useai").checked){b.disabled=true;b.textContent="Mengenali objek…";const ok=(await ml())||(await ai());b.disabled=false;if(!ok){console.error(ERR);toast("Model AI gagal: "+String(ERR).slice(0,90),6000)}}
   if(!S.ai)autoBg(S);S.done=true;compute();syncAuto();if(S.ai)toast("Objek dikenali ✦ rapikan kalau perlu");
 };
 function openP(k){const A=$("#pA"),B=$("#pB"),t=k==="A"?A:B,was=t.hidden;A.hidden=B.hidden=true;t.hidden=!was;$("#drawer").hidden=t.hidden;$("#bA").classList.toggle("on",!A.hidden);$("#bB").classList.toggle("on",!B.hidden);fit()}
