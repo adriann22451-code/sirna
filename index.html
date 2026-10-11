@@ -65,7 +65,7 @@ select{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-
       <label class="s">Toleransi<input type="range" id="tol" min="2" max="110" value="30"><output></output></label>
       <label class="s">Haluskan<input type="range" id="soft" min="0" max="6" value="1"><output></output></label>
       <label class="s">Kikis tepi<input type="range" id="shr" min="-30" max="40" value="6"><output></output></label>
-      <div class="row"><label class="chk"><input type="checkbox" id="glob">Hapus semua warna serupa</label><label class="chk"><input type="checkbox" id="defr" checked>Bersihkan halo</label></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="glob">Hapus semua warna serupa</label><label class="chk"><input type="checkbox" id="defr" checked>Bersihkan halo</label><label class="chk"><input type="checkbox" id="useai" checked>Kenali objek dengan AI</label></div>
       <h4>Tampilan dan ekspor</h4>
       <label class="s">Perbesar<input type="range" id="zoom" min="100" max="500" value="100" step="10"><output></output></label>
       <div class="row">Latar pratinjau <div class="chips" id="chips"></div></div>
@@ -132,14 +132,14 @@ const sm=(a,b,x)=>{x=(x-a)/(b-a);x=x<0?0:x>1?1:x;return x*x*(3-2*x)};
 function compute(){
   if(!S)return;if(!S.done){draw();return}
   const {W,H,src,bg,ov}=S,n=W*H,p=P(),T=p.tol;let rm;
-  if(p.glob){rm=new Uint8Array(n);const T2=T*T;for(let i=0;i<n;i++){const j=i*4,a=src[j]-bg[0],b=src[j+1]-bg[1],c=src[j+2]-bg[2];rm[i]=a*a+b*b+c*c<=T2?1:0}}
+  if(S.ai){rm=new Uint8Array(n);for(let i=0;i<n;i++)rm[i]=S.ai[i]>.5?0:1}else if(p.glob){rm=new Uint8Array(n);const T2=T*T;for(let i=0;i<n;i++){const j=i*4,a=src[j]-bg[0],b=src[j+1]-bg[1],c=src[j+2]-bg[2];rm[i]=a*a+b*b+c*c<=T2?1:0}}
   else{const st=[];for(let x=0;x<W;x++)st.push(x,(H-1)*W+x);for(let y=0;y<H;y++)st.push(y*W,y*W+W-1);rm=region(st,bg,T)}
   const k=new Float32Array(n);
   for(let i=0;i<n;i++){const v=ov[i];k[i]=v===1?0:v===2?1:rm[i]?0:1}
   const kb=p.soft||p.shr?blur(k,W,H,p.soft||1):k,f=Math.max(.04,.08+p.soft*.05),out=S.out=new ImageData(W,H),o=out.data;
   for(let i=0;i<n;i++){
     const j=i*4;let a=sm(.5-f,.5+f,kb[i]-p.shr),r=src[j],g=src[j+1],b=src[j+2];
-    if(a>0&&p.defr&&kb[i]<.97&&ov[i]!==2){ // pita tepi: buang sisa warna latar
+    if(a>0&&p.defr&&!S.ai&&kb[i]<.97&&ov[i]!==2){ // pita tepi: buang sisa warna latar
       const dr=r-bg[0],dg=g-bg[1],db=b-bg[2],ca=sm(T*.45,T*1.9+14,Math.sqrt(dr*dr+dg*dg+db*db));
       if(ca<1){a*=ca;const q=Math.max(ca,.06);r=Math.max(0,Math.min(255,(r-(1-ca)*bg[0])/q));g=Math.max(0,Math.min(255,(g-(1-ca)*bg[1])/q));b=Math.max(0,Math.min(255,(b-(1-ca)*bg[2])/q))}
     }
@@ -151,7 +151,33 @@ function draw(){if(S)cx.putImageData(S.cmp||!S.done||!S.out?S.d:S.out,0,0)}
 function fit(){if(!S)return;const st=$("#stage"),k=Math.min(st.clientWidth/S.W,st.clientHeight/S.H)*(+$("#zoom").value/100);cv.style.width=S.W*k+"px";cv.style.height=S.H*k+"px"}
 new ResizeObserver(fit).observe($("#stage"));
 function syncAuto(){const b=$("#auto");b.textContent=S.done?"↻ Ulangi otomatis":"✦ Hapus Latar Otomatis";b.classList.toggle("go",!S.done);$("#dl").disabled=!S.done}
-$("#auto").onclick=()=>{if(!S)return;S.done=true;autoBg(S);S.ov.fill(0);S.hist=[];S.fut=[];compute();syncAuto();toast("Latar dihapus ✦ — rapikan kalau perlu")};
+function aiMask(poly){ // kontur kasar dari AI -> dipertajam model warna depan/belakang
+  const {W,H,src}=S,n=W*H,c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
+  g.fillStyle="#fff";g.beginPath();poly.forEach((q,i)=>g[i?"lineTo":"moveTo"](q[0]/1000*W,q[1]/1000*H));g.closePath();g.fill();
+  const id=g.getImageData(0,0,W,H).data,m=new Float32Array(n);for(let i=0;i<n;i++)m[i]=id[i*4]/255;
+  const b=blur(m,W,H,Math.max(3,Math.round(Math.max(W,H)*.03))),hf=new Float32Array(4096),hb=new Float32Array(4096),key=i=>(src[i*4]>>4)<<8|(src[i*4+1]>>4)<<4|(src[i*4+2]>>4);
+  let sf=1,sb=1;for(let i=0;i<n;i++){if(b[i]>.97){hf[key(i)]++;sf++}else if(b[i]<.03){hb[key(i)]++;sb++}}
+  const p=new Float32Array(n);
+  for(let i=0;i<n;i++){if(b[i]>.97)p[i]=1;else if(b[i]<.03)p[i]=0;else{const k=key(i),f=(hf[k]+.5)/sf,q=(hb[k]+.5)/sb,pr=Math.min(.95,Math.max(.05,b[i]));p[i]=f*pr/(f*pr+q*(1-pr))}}
+  return blur(p,W,H,2);
+}
+async function ai(){
+  try{
+    const sm=await claude.use("sample");if(!sm)return false;
+    const t=document.createElement("canvas");t.width=S.W;t.height=S.H;t.getContext("2d").putImageData(S.d,0,0);
+    const k=Math.min(1,768/Math.max(S.W,S.H)),c=document.createElement("canvas");c.width=Math.round(S.W*k);c.height=Math.round(S.H*k);c.getContext("2d").drawImage(t,0,0,c.width,c.height);
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.85));
+    const r=await sm.json('Find the main subject (person, animal, character or object) that should stay when the background is removed. Reply ONLY with JSON {"poly":[[x,y],...]}: one closed outline around the whole subject, 24 to 48 points that follow its edge closely (include hair, ears, hands, tails, held items), coordinates 0-1000 where x runs left to right and y top to bottom as a fraction of the image width and height.',{images:blob,cache:false});
+    const poly=Array.isArray(r)?r:r&&r.poly;
+    if(!Array.isArray(poly)||poly.length<3)return false;
+    S.ai=aiMask(poly);return true;
+  }catch(e){return false}
+}
+$("#auto").onclick=async()=>{
+  if(!S)return;const b=$("#auto");S.ov.fill(0);S.hist=[];S.fut=[];S.ai=null;
+  if($("#useai").checked){b.disabled=true;b.textContent="Mengenali objek…";const ok=await ai();b.disabled=false;if(!ok)toast("AI tidak tersedia, pakai deteksi warna")}
+  if(!S.ai)autoBg(S);S.done=true;compute();syncAuto();if(S.ai)toast("Objek dikenali ✦ rapikan kalau perlu");
+};
 function openP(k){const A=$("#pA"),B=$("#pB"),t=k==="A"?A:B,was=t.hidden;A.hidden=B.hidden=true;t.hidden=!was;$("#drawer").hidden=t.hidden;$("#bA").classList.toggle("on",!A.hidden);$("#bB").classList.toggle("on",!B.hidden);fit()}
 $("#bA").onclick=()=>openP("A");$("#bB").onclick=()=>openP("B");
 function run(){cancelAnimationFrame(raf);raf=requestAnimationFrame(compute);outs()}
@@ -165,7 +191,7 @@ function paint(x,y,v){
 }
 cv.addEventListener("pointerdown",e=>{
   if(!S||tool==="pan")return;if(!S.done){toast("Tekan Hapus Latar Otomatis dulu");return}const[x,y]=at(e);if(x<0||y<0||x>=S.W||y>=S.H)return;
-  if(tool==="pip"){const j=(y*S.W+x)*4;S.bg=[S.src[j],S.src[j+1],S.src[j+2]];S.ov.fill(0);run();toast("Warna latar dipilih");return}
+  if(tool==="pip"){const j=(y*S.W+x)*4;S.bg=[S.src[j],S.src[j+1],S.src[j+2]];S.ov.fill(0);S.ai=null;run();toast("Warna latar dipilih");return}
   snap();
   if(tool==="wand"){const j=(y*S.W+x)*4,m=region([y*S.W+x],[S.src[j],S.src[j+1],S.src[j+2]],P().tol);for(let i=0;i<m.length;i++)if(m[i])S.ov[i]=1;run();return}
   drag=true;cv.setPointerCapture(e.pointerId);paint(x,y,tool==="del"?1:2);run();
